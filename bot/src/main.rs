@@ -1,22 +1,35 @@
+use ::log::info;
 use dotenvy::dotenv;
+use poise::serenity_prelude::ChannelId;
 use std::env;
 
 mod log;
 
+pub struct BotContext {
+    log_channel: ChannelId,
+    environment: String,
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-
     // init logging
     if let Err(e) = log::init() {
         eprintln!("failed to init logger: {}", e);
     }
 
-    let game_id = env::var("GAME_ID").unwrap_or_else(|_| "ic3sSYwC".to_string()); // dP8exR8A
+    let token = env::var("DISCORD_TOKEN").expect("Expected a Discord Token in the environment.");
+    let log_channel = env::var("LOG_CHANNEL").expect("Expected a Log Channel in the environment.");
+    let environment = env::var("ENV").unwrap_or("production".to_string());
 
-    ::log::info!("Starting listener for game {}", game_id);
+    let mut state = libshogi::State {
+        threads: vec![],
+        message_callback: None,
+    };
+    libshogi::listen(&mut state).await;
 
-    if let Err(e) = libshogi::listen(&game_id).await {
-        ::log::error!("listener error: {}", e);
-    }
+    // TODO: Discord Listener
+    // Join Discord + LibShogi Listener
+
+    info!("Environment set-up finished.");
 }

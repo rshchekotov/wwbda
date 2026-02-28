@@ -1,2 +1,9 @@
+# Secrets / Environment / Data
+**/.env
+**/*.db
+
+# Logs
 **/logs
+
+# Builds
 target
