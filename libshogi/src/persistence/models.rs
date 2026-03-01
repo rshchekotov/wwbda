@@ -21,3 +21,11 @@ pub struct ShogiGame {
     pub winner: Option<String>,
     pub win_condition: Option<String>,
 }
+
+#[derive(Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::persistence::schema::player)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct Player {
+    pub id: i64,
+    pub lishogi_tag: String,
+}

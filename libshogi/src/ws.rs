@@ -11,7 +11,7 @@ use tokio::time;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
 use crate::persistence::{establish_connection, sqlite_pool_handler};
-use crate::{CrowdMessage, MessageData, SocketMessage, State};
+use crate::{CrowdMessage, MessageData, SocketMessage, SocketMessageCallback, State};
 
 type StreamMessageMutex<'a> =
     MutexGuard<'a, SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>;
@@ -130,7 +130,7 @@ pub async fn listen(state: &mut State) {
 /// Long-running game listener.
 pub async fn listen_to_game(
     game_id: &str,
-    callback: Option<fn(SocketMessage)>,
+    callback: Option<SocketMessageCallback>,
 ) -> Result<(), Box<dyn Error>> {
     let ws = connect_url(game_id).await?;
 
@@ -177,7 +177,7 @@ pub async fn listen_to_game(
                 if let Ok(ws_msg) = serde_json::from_str::<SocketMessage>(&t) {
                     info!("[{}]: {:?}", game_id, ws_msg);
                     if let Some(func) = callback {
-                        func(ws_msg.clone());
+                        func(ws_msg.clone()).await;
                     }
 
                     if let Some(data) = ws_msg.d

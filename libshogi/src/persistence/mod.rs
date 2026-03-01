@@ -7,7 +7,10 @@ use r2d2::{Error as PooledConnectionError, Pool, PooledConnection};
 use std::env;
 use std::error::Error as StdError;
 
-use crate::{State, persistence::models::ShogiGame};
+use crate::{
+    State,
+    persistence::models::{Player, ShogiGame},
+};
 
 pub mod models;
 pub mod schema;
@@ -33,10 +36,11 @@ pub fn sqlite_pool_handler(
     pool.get()
 }
 
-pub fn run_migrations(
-    mut conn: SqlitePooledConnection,
-) -> Result<(), Box<dyn StdError + Send + Sync>> {
-    conn.run_pending_migrations(MIGRATIONS)?;
+pub fn run_migrations() -> Result<(), Box<dyn StdError + Send + Sync>> {
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled Connection should be established.");
+    connection.run_pending_migrations(MIGRATIONS)?;
     Ok(())
 }
 
@@ -64,4 +68,23 @@ pub fn add_game(game: String, state: &mut State) {
             let _ = crate::ws::listen_to_game(game.as_str(), callback).await;
         }
     }));
+}
+
+pub fn add_player(discord: i64, lishogi: String) {
+    use crate::persistence::schema::player;
+
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled connection should be established.");
+
+    let new_player = Player {
+        id: discord,
+        lishogi_tag: lishogi,
+    };
+
+    diesel::insert_into(player::table)
+        .values(new_player)
+        .returning(Player::as_returning())
+        .get_result(connection)
+        .expect("Error associating Discord with LiShogi Player.");
 }

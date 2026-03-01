@@ -4,10 +4,12 @@ pub mod ws;
 // Shared message types parsed from LiShogi websocket JSON payloads.
 use serde::Deserialize;
 
+pub type SocketMessageCallback = fn(SocketMessage) -> std::future::Ready<()>;
+
 #[derive(Debug)]
 pub struct State {
     pub threads: Vec<tokio::task::JoinHandle<()>>,
-    pub message_callback: Option<fn(SocketMessage)>,
+    pub message_callback: Option<SocketMessageCallback>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -67,4 +69,5 @@ pub struct CrowdMessage {
     pub d: CrowdData,
 }
 
+pub use persistence::{add_game, add_player, run_migrations};
 pub use ws::listen;

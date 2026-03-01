@@ -2,7 +2,7 @@
 
 diesel::table! {
     player (id) {
-        id -> Integer,
+        id -> BigInt,
         lishogi_tag -> Text,
     }
 }
