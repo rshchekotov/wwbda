@@ -23,6 +23,20 @@ pub async fn event_handler(
                     .await
                     .expect("Could not send initial message to logging channel.");
             }
+
+            if libshogi::run_migrations().is_ok() {
+                // libshogi::listen(&mut local_state.threads, callback).await;
+                // Spawn listener - returns immediately!
+
+                let shared_state = data.state.clone();
+                tokio::spawn(async move {
+                    let mut state = shared_state.lock().await;
+                    let callback = state.message_callback.clone();
+                    info!("Starting LiShogi listener...");
+                    libshogi::listen(&mut state.threads, callback).await;
+                    info!("LiShogi listener has processed all running games...");
+                });
+            }
         }
         _ => {}
     }

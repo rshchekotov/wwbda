@@ -4,11 +4,12 @@ use diesel::{
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use r2d2::{Error as PooledConnectionError, Pool, PooledConnection};
-use std::env;
 use std::error::Error as StdError;
+use std::{env, sync::Arc};
+use tokio::task::JoinHandle;
 
 use crate::{
-    State,
+    SocketMessageCallback,
     persistence::models::{Player, ShogiGame},
 };
 
@@ -44,7 +45,11 @@ pub fn run_migrations() -> Result<(), Box<dyn StdError + Send + Sync>> {
     Ok(())
 }
 
-pub fn add_game(game: String, state: &mut State) {
+pub fn add_game(
+    game: String,
+    threads: &mut Vec<JoinHandle<()>>,
+    message_callback: Option<Arc<SocketMessageCallback>>,
+) {
     use crate::persistence::schema::shogi_game;
 
     let pool = establish_connection();
@@ -62,8 +67,8 @@ pub fn add_game(game: String, state: &mut State) {
         .get_result(connection)
         .expect("Error registering game in database.");
 
-    state.threads.push(tokio::spawn({
-        let callback = state.message_callback;
+    threads.push(tokio::spawn({
+        let callback = message_callback;
         async move {
             let _ = crate::ws::listen_to_game(game.as_str(), callback).await;
         }

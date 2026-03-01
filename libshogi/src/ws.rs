@@ -7,11 +7,12 @@ use std::sync::Arc;
 use std::{error::Error, time::Duration};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, MutexGuard};
+use tokio::task::JoinHandle;
 use tokio::time;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
 use crate::persistence::{establish_connection, sqlite_pool_handler};
-use crate::{CrowdMessage, MessageData, SocketMessage, SocketMessageCallback, State};
+use crate::{CrowdMessage, MessageData, SocketMessage, SocketMessageCallback};
 
 type StreamMessageMutex<'a> =
     MutexGuard<'a, SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>;
@@ -99,7 +100,10 @@ pub async fn collect_pings(
     Ok(ping_count)
 }
 
-pub async fn listen(state: &mut State) {
+pub async fn listen(
+    threads: &mut Vec<JoinHandle<()>>,
+    callback: Option<Arc<SocketMessageCallback>>,
+) {
     use crate::persistence::schema::{
         shogi_game::dsl::*,
         shogi_game_move::dsl::{id as sgm_id, *},
@@ -118,10 +122,10 @@ pub async fn listen(state: &mut State) {
         .expect("Failed to fetch games.");
 
     for game_id in game_ids {
-        state.threads.push(tokio::spawn({
-            let callback = state.message_callback;
+        threads.push(tokio::spawn({
+            let local_callback = callback.clone();
             async move {
-                let _ = listen_to_game(game_id.as_str(), callback).await;
+                let _ = listen_to_game(game_id.as_str(), local_callback).await;
             }
         }));
     }
@@ -130,7 +134,7 @@ pub async fn listen(state: &mut State) {
 /// Long-running game listener.
 pub async fn listen_to_game(
     game_id: &str,
-    callback: Option<SocketMessageCallback>,
+    callback: Option<Arc<SocketMessageCallback>>,
 ) -> Result<(), Box<dyn Error>> {
     let ws = connect_url(game_id).await?;
 
@@ -176,7 +180,7 @@ pub async fn listen_to_game(
 
                 if let Ok(ws_msg) = serde_json::from_str::<SocketMessage>(&t) {
                     info!("[{}]: {:?}", game_id, ws_msg);
-                    if let Some(func) = callback {
+                    if let Some(func) = callback.clone() {
                         func(ws_msg.clone()).await;
                     }
 

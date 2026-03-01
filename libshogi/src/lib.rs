@@ -1,15 +1,18 @@
 pub mod persistence;
 pub mod ws;
 
+use std::{pin::Pin, sync::Arc};
+
 // Shared message types parsed from LiShogi websocket JSON payloads.
 use serde::Deserialize;
 
-pub type SocketMessageCallback = fn(SocketMessage) -> std::future::Ready<()>;
+pub type SocketMessageCallback =
+    Box<dyn Fn(SocketMessage) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
 
-#[derive(Debug)]
+#[derive(Default)]
 pub struct State {
     pub threads: Vec<tokio::task::JoinHandle<()>>,
-    pub message_callback: Option<SocketMessageCallback>,
+    pub message_callback: Option<Arc<SocketMessageCallback>>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -28,6 +31,7 @@ pub struct MoveData {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[allow(unused)]
 pub struct GameStatus {
     id: u32,
     name: String,

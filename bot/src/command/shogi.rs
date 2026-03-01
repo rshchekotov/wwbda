@@ -1,8 +1,16 @@
+use std::sync::Arc;
+
 use crate::{Context, Error};
+use libshogi::{SocketMessage, SocketMessageCallback};
 use poise::serenity_prelude as serenity;
 
-#[poise::command(prefix_command, slash_command, subcommands("user", "track"))]
-pub async fn shogi_root(_ctx: Context<'_>) -> Result<(), Error> {
+#[poise::command(
+    rename = "shogi",
+    prefix_command,
+    slash_command,
+    subcommands("user", "track")
+)]
+pub async fn shogi(_ctx: Context<'_>) -> Result<(), Error> {
     // TODO: "Database Dump":
     //   - how many/which registered users
     //   - how many games
@@ -35,6 +43,24 @@ pub async fn track(
     game_id: String,
 ) -> Result<(), Error> {
     let state = &mut ctx.data().state.lock().await;
-    libshogi::add_game(game_id, state);
+    let callback = state.message_callback.as_ref().map(|arc| arc.clone());
+    libshogi::add_game(game_id, &mut state.threads, callback);
     Ok(())
+}
+
+pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
+    Box::new(move |_msg: SocketMessage| {
+        let http = Arc::clone(&client);
+        Box::pin(async move {
+            let guilds = http
+                .get_guilds(None, None)
+                .await
+                .expect("GuildInfo should be safely retrieved.");
+            for guild in guilds {
+                println!("Guild: {:?}", guild);
+            }
+            // let channels = client.get_channels("");
+            // client.send_message().await;
+        })
+    })
 }
