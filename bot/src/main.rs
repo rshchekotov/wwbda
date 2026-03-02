@@ -11,8 +11,10 @@ use tokio::sync::Mutex;
 use crate::command::shogi;
 
 mod command;
+mod error;
 mod event;
 mod log;
+mod util;
 
 pub struct BotContext {
     log_channel: ChannelId,
