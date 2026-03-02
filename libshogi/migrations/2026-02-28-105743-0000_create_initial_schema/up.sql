@@ -1,3 +1,5 @@
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS player (
   id BIGINT PRIMARY KEY,
   lishogi_tag TEXT NOT NULL UNIQUE
@@ -7,22 +9,16 @@ CREATE TABLE IF NOT EXISTS shogi_game (
   id TEXT PRIMARY KEY,
   sente TEXT,
   gote TEXT,
-  winner TEXT,
+  -- winner: 0 = in-progress/draw[win_condition], 1 = sente, 2 = gote
+  winner INTEGER NOT NULL DEFAULT 0,
   win_condition TEXT,
   CHECK (sente IS NULL OR sente != gote),
-  CHECK (
-    winner IS NULL AND win_condition IS NULL OR
-    winner IS NOT NULL AND win_condition IS NOT NULL
-  ),
+  CHECK (winner == 0 OR win_condition IS NOT NULL),
   FOREIGN KEY(sente)
     REFERENCES player(lishogi_tag)
       ON DELETE NO ACTION
       ON UPDATE CASCADE,
   FOREIGN KEY(gote)
-    REFERENCES player(lishogi_tag)
-      ON DELETE NO ACTION
-      ON UPDATE CASCADE,
-  FOREIGN KEY(winner)
     REFERENCES player(lishogi_tag)
       ON DELETE NO ACTION
       ON UPDATE CASCADE

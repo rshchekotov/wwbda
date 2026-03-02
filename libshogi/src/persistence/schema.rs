@@ -12,7 +12,7 @@ diesel::table! {
         id -> Text,
         sente -> Nullable<Text>,
         gote -> Nullable<Text>,
-        winner -> Nullable<Text>,
+        winner -> Integer,
         win_condition -> Nullable<Text>,
     }
 }

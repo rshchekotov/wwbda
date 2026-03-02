@@ -1,6 +1,5 @@
 use diesel::{
-    RunQueryDsl, SelectableHelper, SqliteConnection,
-    r2d2::{ConnectionManager, PoolError},
+    BelongingToDsl, SqliteConnection, associations::HasTable, prelude::*, r2d2::{ConnectionManager, PoolError}
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use r2d2::{Error as PooledConnectionError, Pool, PooledConnection};
@@ -10,7 +9,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     SocketMessageCallback,
-    persistence::models::{Player, ShogiGame},
+    persistence::models::{DetailedShogiGame, Player, ShogiGame, ShogiGameMove},
 };
 
 pub mod models;
@@ -92,4 +91,96 @@ pub fn add_player(discord: i64, lishogi: String) {
         .returning(Player::as_returning())
         .get_result(connection)
         .expect("Error associating Discord with LiShogi Player.");
+}
+
+pub fn get_game(game_id: &str) -> Option<ShogiGame> {
+    use crate::persistence::schema::shogi_game::dsl::shogi_game;
+
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled connection should be established.");
+
+    shogi_game
+        .find(game_id)
+        .select(ShogiGame::as_select())
+        .first(connection)
+        .optional()
+        .expect("Query by Game ID should not fail")
+}
+
+pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled connection should be established.");
+
+    // let result = diesel::sql_query(
+    //     "
+    //     SELECT 
+    //         sg.id as game_id,
+    //         s_player.id as sente_id,
+    //         g_player.id as gote_id,
+    //         sg.winner,
+    //         sg.win_condition,
+    //         lgm.turn as latest_move_turn,
+    //         lgm.ts as latest_move_time,
+    //         lgm.sfen as latest_move_sfen
+    //     FROM shogi_game sg
+    //     LEFT JOIN player s_player ON sg.sente = s_player.lishogi_tag
+    //     LEFT JOIN player g_player ON sg.gote = g_player.lishogi_tag
+    //     LEFT JOIN (
+    //         SELECT game_id, turn, ts, sfen
+    //         FROM shogi_game_move 
+    //         WHERE game_id = ?
+    //         ORDER BY turn DESC LIMIT 1
+    //     ) lgm ON sg.id = lgm.game_id
+    //     WHERE sg.id = ?
+    // ",
+    // )
+    // .bind::<Text, _>(game_id)
+    // .load::<DetailedShogiGame>(connection)
+    // .ok()
+    // .and_then(|mut results| results.pop());
+
+    use crate::persistence::schema::shogi_game::dsl::shogi_game;
+    use crate::persistence::schema::player::dsl::*;
+
+    let result = shogi_game.select(ShogiGame::as_select())
+        .find(game_id).first(connection).ok();
+
+    if let Some(game) = result {
+        let moves = ShogiGameMove::belonging_to(&game)
+        .select(ShogiGameMove::as_select()).load(connection)
+        .expect("Should be able to query moves for a game.");
+
+        let sente = if let Some(sente_tag) = game.sente.clone() {
+            player::table().select(Player::as_select())
+                .filter(lishogi_tag.eq(sente_tag))
+                .first(connection)
+                .optional()
+                .expect("Query for Sente Player should not fail.")
+        } else {
+            None
+        };
+
+        let gote = if let Some(gote_tag) = game.gote.clone() {
+            player::table().select(Player::as_select())
+                .filter(lishogi_tag.eq(gote_tag))
+                .first(connection)
+                .optional()
+                .expect("Query for Gote Player should not fail.")
+        } else {
+            None
+        };
+
+        return Some(DetailedShogiGame {
+            game,
+            latest_move: moves.first().cloned(),
+            sente,
+            gote,
+        });
+    } else {
+        return None;
+    }
+
+    
 }

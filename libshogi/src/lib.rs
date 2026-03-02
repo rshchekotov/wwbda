@@ -1,13 +1,17 @@
 pub mod persistence;
 pub mod ws;
 
+use crate::persistence::models::{DetailedShogiGame};
 use std::{pin::Pin, sync::Arc};
 
 // Shared message types parsed from LiShogi websocket JSON payloads.
 use serde::Deserialize;
 
-pub type SocketMessageCallback =
-    Box<dyn Fn(SocketMessage) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
+pub type SocketMessageCallback = Box<
+    dyn Fn(&str, DetailedShogiGame, SocketMessage) -> Pin<Box<dyn Future<Output = ()> + Send>>
+        + Send
+        + Sync,
+>;
 
 #[derive(Default)]
 pub struct State {
@@ -31,10 +35,9 @@ pub struct MoveData {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[allow(unused)]
 pub struct GameStatus {
-    id: u32,
-    name: String,
+    pub id: u32,
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]

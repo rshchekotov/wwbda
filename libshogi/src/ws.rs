@@ -11,7 +11,7 @@ use tokio::task::JoinHandle;
 use tokio::time;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
-use crate::persistence::{establish_connection, sqlite_pool_handler};
+use crate::persistence::{establish_connection, get_game_details, sqlite_pool_handler};
 use crate::{CrowdMessage, MessageData, SocketMessage, SocketMessageCallback};
 
 type StreamMessageMutex<'a> =
@@ -179,18 +179,37 @@ pub async fn listen_to_game(
                 }
 
                 if let Ok(ws_msg) = serde_json::from_str::<SocketMessage>(&t) {
-                    info!("[{}]: {:?}", game_id, ws_msg);
-                    if let Some(func) = callback.clone() {
-                        func(ws_msg.clone()).await;
+                    let mut end_game = false;
+
+                    debug!("[{}]: {:?}", game_id, ws_msg);
+
+                    if let Some(data) = ws_msg.clone().d {
+                        match data {
+                            MessageData::MoveData(_) => {
+                                // TODO: write move to database
+                            }
+                            MessageData::EndGameData(_) => {
+                                // TODO: write to database that the game ended, registering the winner (=>
+                                // db change to indicate who won in terms of sente/gote, not foreign key to
+                                // user [in case those don't exist], also: draws)
+                                info!("[{}] Game Ended", game_id);
+                                end_game = true;
+                            }
+                        }
                     }
 
-                    if let Some(data) = ws_msg.d
-                        && let MessageData::EndGameData(_) = data
-                    {
-                        info!("[{}] Game Ended", game_id);
-                        break;
+                    if let Some(func) = callback.clone() {
+                        let game = get_game_details(game_id).await
+                            .expect("There should be an existing Shogi Game at this point in the program.");
+
+                        func(game_id, game, ws_msg).await;
                     }
-                    continue;
+
+                    if end_game {
+                        break;
+                    } else {
+                        continue;
+                    }
                 }
 
                 // Try parse crowd message
