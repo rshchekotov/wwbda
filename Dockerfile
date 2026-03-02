@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+
+## BUILD STAGE
+FROM rust:1.77-slim as builder
+
+WORKDIR /usr/src/app
+COPY Cargo.toml Cargo.lock ./
+COPY bot/ ./bot/
+COPY libshogi/ ./libshogi/
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo build --release --bin bot
+
+## RUNTIME STAGE
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /usr/src/app/target/release/bot .
+COPY CHANGELOG.md .
+
+USER 1000:1000
+CMD ["./bot"]
+
