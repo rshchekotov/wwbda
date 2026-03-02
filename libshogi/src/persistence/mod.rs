@@ -1,5 +1,8 @@
 use diesel::{
-    BelongingToDsl, SqliteConnection, associations::HasTable, prelude::*, r2d2::{ConnectionManager, PoolError}
+    BelongingToDsl, SqliteConnection,
+    associations::HasTable,
+    prelude::*,
+    r2d2::{ConnectionManager, PoolError},
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use r2d2::{Error as PooledConnectionError, Pool, PooledConnection};
@@ -46,6 +49,8 @@ pub fn run_migrations() -> Result<(), Box<dyn StdError + Send + Sync>> {
 
 pub fn add_game(
     game: String,
+    sente_lishogi: Option<String>,
+    gote_lishogi: Option<String>,
     threads: &mut Vec<JoinHandle<()>>,
     message_callback: Option<Arc<SocketMessageCallback>>,
 ) {
@@ -57,6 +62,8 @@ pub fn add_game(
 
     let new_game = ShogiGame {
         id: game.clone(),
+        sente: sente_lishogi,
+        gote: gote_lishogi,
         ..Default::default()
     };
 
@@ -115,7 +122,7 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
 
     // let result = diesel::sql_query(
     //     "
-    //     SELECT 
+    //     SELECT
     //         sg.id as game_id,
     //         s_player.id as sente_id,
     //         g_player.id as gote_id,
@@ -129,7 +136,7 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     //     LEFT JOIN player g_player ON sg.gote = g_player.lishogi_tag
     //     LEFT JOIN (
     //         SELECT game_id, turn, ts, sfen
-    //         FROM shogi_game_move 
+    //         FROM shogi_game_move
     //         WHERE game_id = ?
     //         ORDER BY turn DESC LIMIT 1
     //     ) lgm ON sg.id = lgm.game_id
@@ -141,19 +148,24 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     // .ok()
     // .and_then(|mut results| results.pop());
 
-    use crate::persistence::schema::shogi_game::dsl::shogi_game;
     use crate::persistence::schema::player::dsl::*;
+    use crate::persistence::schema::shogi_game::dsl::shogi_game;
 
-    let result = shogi_game.select(ShogiGame::as_select())
-        .find(game_id).first(connection).ok();
+    let result = shogi_game
+        .select(ShogiGame::as_select())
+        .find(game_id)
+        .first(connection)
+        .ok();
 
     if let Some(game) = result {
         let moves = ShogiGameMove::belonging_to(&game)
-        .select(ShogiGameMove::as_select()).load(connection)
-        .expect("Should be able to query moves for a game.");
+            .select(ShogiGameMove::as_select())
+            .load(connection)
+            .expect("Should be able to query moves for a game.");
 
         let sente = if let Some(sente_tag) = game.sente.clone() {
-            player::table().select(Player::as_select())
+            player::table()
+                .select(Player::as_select())
                 .filter(lishogi_tag.eq(sente_tag))
                 .first(connection)
                 .optional()
@@ -163,7 +175,8 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
         };
 
         let gote = if let Some(gote_tag) = game.gote.clone() {
-            player::table().select(Player::as_select())
+            player::table()
+                .select(Player::as_select())
                 .filter(lishogi_tag.eq(gote_tag))
                 .first(connection)
                 .optional()
@@ -172,15 +185,13 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
             None
         };
 
-        return Some(DetailedShogiGame {
+        Some(DetailedShogiGame {
             game,
             latest_move: moves.first().cloned(),
             sente,
             gote,
-        });
+        })
     } else {
-        return None;
+        None
     }
-
-    
 }

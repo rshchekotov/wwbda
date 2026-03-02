@@ -61,10 +61,18 @@ pub async fn track(
     #[min_length = 8]
     #[max_length = 8]
     game_id: String,
+    #[description = "Lishogi Tag of the Sente Player"] sente_lishogi: Option<String>,
+    #[description = "Lishogi Tag of the Gote Player"] gote_lishogi: Option<String>,
 ) -> Result<(), Error> {
     let state = &mut ctx.data().state.lock().await;
     let callback = state.message_callback.as_ref().map(|arc| arc.clone());
-    libshogi::add_game(game_id.clone(), &mut state.threads, callback);
+    libshogi::add_game(
+        game_id.clone(),
+        sente_lishogi,
+        gote_lishogi,
+        &mut state.threads,
+        callback,
+    );
     ctx.reply(format!("Now tracking game with ID '{}'.", game_id))
         .await
         .expect("Game Tracking Reponse should succeed.");
@@ -138,10 +146,10 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                     .description(format!("Turn #{}\n{}", game_move.turn, sfen))
                                     .timestamp(serenity::Timestamp::now());
 
-                                if let Some(check_val) = check {
-                                    if check_val {
-                                        embed = embed.field("Status", "王手", false);
-                                    }
+                                if let Some(check_val) = check
+                                    && check_val
+                                {
+                                    embed = embed.field("Status", "王手", false);
                                 }
 
                                 if let Some(clock_val) = clock {
@@ -166,14 +174,10 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                                 .to_string(),
                                         );
                                     }
-                                } else {
-                                    if let Some(gote_player) = &game.gote {
-                                        message = message.content(
-                                            UserId::new(gote_player.id as u64)
-                                                .mention()
-                                                .to_string(),
-                                        );
-                                    }
+                                } else if let Some(gote_player) = &game.gote {
+                                    message = message.content(
+                                        UserId::new(gote_player.id as u64).mention().to_string(),
+                                    );
                                 }
 
                                 thread
