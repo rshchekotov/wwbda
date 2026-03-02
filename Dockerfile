@@ -3,6 +3,10 @@
 ## BUILD STAGE
 FROM rust:1.93.1-slim as builder
 
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends pkg-config libssl-dev libsqlite3-dev && \
+  rm -rf /var/lib/apt/lists/*
+
 WORKDIR /usr/src/app
 COPY Cargo.toml Cargo.lock ./
 COPY bot/ ./bot/
