@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ## BUILD STAGE
-FROM rust:1.77-slim as builder
+FROM rust:1.93.1-slim as builder
 
 WORKDIR /usr/src/app
 COPY Cargo.toml Cargo.lock ./
