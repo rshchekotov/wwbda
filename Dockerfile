@@ -21,7 +21,9 @@ FROM debian:bookworm-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates libsqlite3-dev && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /app/{db,logs} && \
+    chown 1000:1000 /app/{db,logs}
 
 WORKDIR /app
 COPY --from=builder /usr/src/app/target/release/bot .
