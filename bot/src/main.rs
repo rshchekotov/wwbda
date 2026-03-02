@@ -95,8 +95,6 @@ async fn main() {
     // TODO: Once database expands, save a pool-handle into the Bot Context and re-use that one
     // When that happens, give libshogi#run_migrations an argument
 
-    // TODO: Discord Listener
-    // Join Discord + LibShogi Listener
     let ctrl_c = signal::ctrl_c();
     tokio::select! {
         _ = ctrl_c => {

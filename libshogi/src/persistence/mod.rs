@@ -11,7 +11,7 @@ use std::{env, sync::Arc};
 use tokio::task::JoinHandle;
 
 use crate::{
-    SocketMessageCallback,
+    EndGameData, MoveData, SocketMessageCallback,
     persistence::models::{DetailedShogiGame, Player, ShogiGame, ShogiGameMove},
 };
 
@@ -120,34 +120,6 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     let connection =
         &mut sqlite_pool_handler(&pool).expect("Pooled connection should be established.");
 
-    // let result = diesel::sql_query(
-    //     "
-    //     SELECT
-    //         sg.id as game_id,
-    //         s_player.id as sente_id,
-    //         g_player.id as gote_id,
-    //         sg.winner,
-    //         sg.win_condition,
-    //         lgm.turn as latest_move_turn,
-    //         lgm.ts as latest_move_time,
-    //         lgm.sfen as latest_move_sfen
-    //     FROM shogi_game sg
-    //     LEFT JOIN player s_player ON sg.sente = s_player.lishogi_tag
-    //     LEFT JOIN player g_player ON sg.gote = g_player.lishogi_tag
-    //     LEFT JOIN (
-    //         SELECT game_id, turn, ts, sfen
-    //         FROM shogi_game_move
-    //         WHERE game_id = ?
-    //         ORDER BY turn DESC LIMIT 1
-    //     ) lgm ON sg.id = lgm.game_id
-    //     WHERE sg.id = ?
-    // ",
-    // )
-    // .bind::<Text, _>(game_id)
-    // .load::<DetailedShogiGame>(connection)
-    // .ok()
-    // .and_then(|mut results| results.pop());
-
     use crate::persistence::schema::player::dsl::*;
     use crate::persistence::schema::shogi_game::dsl::shogi_game;
 
@@ -194,4 +166,45 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     } else {
         None
     }
+}
+
+pub async fn add_move(game_id: &str, data: MoveData) {
+    use crate::persistence::schema::shogi_game::dsl::*;
+    use crate::persistence::schema::shogi_game_move;
+
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled Connection should be established.");
+
+    let game: ShogiGame = shogi_game
+        .find(game_id)
+        .first(connection)
+        .expect("Game must exist for moves to be added.");
+
+    let game_move = ShogiGameMove {
+        id: game.id,
+        sfen: data.sfen,
+        turn: data.ply as i32,
+        ts: chrono::offset::Utc::now().naive_utc(),
+    };
+
+    diesel::insert_into(shogi_game_move::table)
+        .values(game_move)
+        .execute(connection)
+        .expect("Should be able to add a move to a game");
+}
+
+pub async fn end_game(game_id: &str, data: EndGameData) {
+    use crate::persistence::schema::shogi_game::dsl::*;
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled Connection should be established.");
+
+    let winner_id = if data.winner == "sente" { 1 } else { 2 };
+
+    diesel::update(shogi_game)
+        .filter(id.eq(game_id))
+        .set((winner.eq(winner_id), win_condition.eq(data.status.name)))
+        .execute(connection)
+        .expect("Should be able to write EndGameData.");
 }
