@@ -5,6 +5,7 @@ use diesel::{
     r2d2::{ConnectionManager, PoolError},
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use log::debug;
 use r2d2::{Error as PooledConnectionError, Pool, PooledConnection};
 use std::error::Error as StdError;
 use std::{env, sync::Arc};
@@ -53,7 +54,7 @@ pub fn add_game(
     gote_lishogi: Option<String>,
     threads: &mut Vec<JoinHandle<()>>,
     message_callback: Option<Arc<SocketMessageCallback>>,
-) {
+) -> bool {
     use crate::persistence::schema::shogi_game;
 
     let pool = establish_connection();
@@ -67,21 +68,26 @@ pub fn add_game(
         ..Default::default()
     };
 
-    diesel::insert_into(shogi_game::table)
+    let result = diesel::insert_into(shogi_game::table)
         .values(&new_game)
         .returning(ShogiGame::as_returning())
-        .get_result(connection)
-        .expect("Error registering game in database.");
+        .get_result(connection);
 
-    threads.push(tokio::spawn({
-        let callback = message_callback;
-        async move {
-            let _ = crate::ws::listen_to_game(game.as_str(), callback).await;
-        }
-    }));
+    let added = result.is_ok();
+    if added {
+        threads.push(tokio::spawn({
+            let callback = message_callback;
+            async move {
+                let _ = crate::ws::listen_to_game(game.as_str(), callback).await;
+            }
+        }));
+    } else {
+        debug!("DB Error during Add Game: {:?}", result.err());
+    }
+    added
 }
 
-pub fn add_player(discord: i64, lishogi: String) {
+pub fn add_player(discord: i64, lishogi: String) -> bool {
     use crate::persistence::schema::player;
 
     let pool = establish_connection();
@@ -93,11 +99,18 @@ pub fn add_player(discord: i64, lishogi: String) {
         lishogi_tag: lishogi,
     };
 
-    diesel::insert_into(player::table)
+    let result = diesel::insert_into(player::table)
         .values(new_player)
         .returning(Player::as_returning())
-        .get_result(connection)
-        .expect("Error associating Discord with LiShogi Player.");
+        .get_result(connection);
+
+    let added = result.is_ok();
+
+    if !added {
+        debug!("DB Error during Add Player: {:?}", result.err());
+    }
+
+    added
 }
 
 pub fn get_game(game_id: &str) -> Option<ShogiGame> {
@@ -122,6 +135,7 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
 
     use crate::persistence::schema::player::dsl::*;
     use crate::persistence::schema::shogi_game::dsl::shogi_game;
+    use crate::persistence::schema::shogi_game_move::dsl::ts;
 
     let result = shogi_game
         .select(ShogiGame::as_select())
@@ -132,6 +146,7 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     if let Some(game) = result {
         let moves = ShogiGameMove::belonging_to(&game)
             .select(ShogiGameMove::as_select())
+            .order_by(ts.desc())
             .load(connection)
             .expect("Should be able to query moves for a game.");
 
@@ -168,7 +183,7 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     }
 }
 
-pub async fn add_move(game_id: &str, data: MoveData) {
+pub async fn add_move(game_id: &str, data: MoveData) -> bool {
     use crate::persistence::schema::shogi_game::dsl::*;
     use crate::persistence::schema::shogi_game_move;
 
@@ -191,7 +206,7 @@ pub async fn add_move(game_id: &str, data: MoveData) {
     diesel::insert_into(shogi_game_move::table)
         .values(game_move)
         .execute(connection)
-        .expect("Should be able to add a move to a game");
+        .is_ok()
 }
 
 pub async fn end_game(game_id: &str, data: EndGameData) {

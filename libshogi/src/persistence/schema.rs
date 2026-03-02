@@ -18,7 +18,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    shogi_game_move (id) {
+    shogi_game_move (id, turn) {
         id -> Text,
         turn -> Integer,
         ts -> Timestamp,

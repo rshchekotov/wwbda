@@ -7,7 +7,7 @@ use libshogi::{
 };
 use poise::serenity_prelude::{
     self as serenity, ChannelType, CreateEmbed, CreateMessage, CreateThread, EditThread,
-    Mentionable, UserId,
+    GuildChannel, Mentionable, UserId,
 };
 
 #[poise::command(
@@ -32,24 +32,44 @@ pub async fn user(
     #[description = "Discord User (default: you)"] user: Option<serenity::User>,
 ) -> Result<(), Error> {
     if let Some(target_user) = user {
-        libshogi::add_player(target_user.id.get() as i64, lishogi_tag.clone());
-        ctx.reply(format!(
-            "Associated Lishogi ID '{}' with {}",
-            lishogi_tag,
-            target_user.mention(),
-        ))
-        .await
-        .expect("Third-Person User Creation Response should succeed.");
+        let success = libshogi::add_player(target_user.id.get() as i64, lishogi_tag.clone());
+        if success {
+            ctx.reply(format!(
+                "Associated Lishogi ID '{}' with {}",
+                lishogi_tag,
+                target_user.mention(),
+            ))
+            .await
+            .expect("Third-Person User Creation Response should succeed.");
+        } else {
+            ctx.reply(format!(
+                "Couldn't associate Lishogi ID '{}' with {} (maybe already associated w/ something else).",
+                lishogi_tag,
+                target_user.mention(),
+            ))
+            .await
+            .expect("Negative Third-Person User Creation Response should succeed.");
+        }
     } else {
         let target_user = ctx.author();
-        libshogi::add_player(target_user.id.get() as i64, lishogi_tag.clone());
-        ctx.reply(format!(
-            "Associated Lishogi ID '{}' with {}",
-            lishogi_tag,
-            target_user.mention(),
-        ))
-        .await
-        .expect("User Creation Response should succeed.");
+        let success = libshogi::add_player(target_user.id.get() as i64, lishogi_tag.clone());
+        if success {
+            ctx.reply(format!(
+                "Associated Lishogi ID '{}' with {}",
+                lishogi_tag,
+                target_user.mention(),
+            ))
+            .await
+            .expect("Positive User Creation Response should succeed.");
+        } else {
+            ctx.reply(format!(
+                "Couldn't associate Lishogi ID '{}' with {} (maybe already associated w/ something else).",
+                lishogi_tag,
+                target_user.mention(),
+            ))
+            .await
+            .expect("Negative User Creation Response should succeed.");
+        }
     }
     Ok(())
 }
@@ -66,16 +86,25 @@ pub async fn track(
 ) -> Result<(), Error> {
     let state = &mut ctx.data().state.lock().await;
     let callback = state.message_callback.as_ref().map(|arc| arc.clone());
-    libshogi::add_game(
+    let added_game = libshogi::add_game(
         game_id.clone(),
         sente_lishogi,
         gote_lishogi,
         &mut state.threads,
         callback,
     );
-    ctx.reply(format!("Now tracking game with ID '{}'.", game_id))
+    if added_game {
+        ctx.reply(format!("Now tracking game with ID '{}'.", game_id))
+            .await
+            .expect("Positive Game Tracking Reponse should succeed.");
+    } else {
+        ctx.reply(format!(
+            "Failed to add game '{}'.\nMaybe it already exists?",
+            game_id
+        ))
         .await
-        .expect("Game Tracking Reponse should succeed.");
+        .expect("Negative Game Tracking Reponse should succeed.");
+    }
     Ok(())
 }
 
@@ -107,29 +136,40 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                     .await
                     .expect("Channels should be safely retrievable.");
 
-                let mut thread = if let Some(thread) =
-                    channels.iter().find(|c| c.name == owned_game_id.as_str())
-                {
-                    thread.clone()
-                } else {
-                    let channel = channels
-                        .iter()
-                        .find(|c| c.name.as_str() == "将棋")
-                        .expect("There should exist a channel called 将棋.");
+                let shogi_channel = channels
+                    .iter()
+                    .find(|c| c.name.as_str() == "将棋")
+                    .expect("There should exist a channel called 将棋.");
 
-                    channel
-                        .create_thread(
-                            &http,
-                            CreateThread::new(owned_game_id.as_str())
-                                .kind(ChannelType::PublicThread)
-                                .auto_archive_duration(serenity::AutoArchiveDuration::OneWeek)
-                                .audit_log_reason(
-                                    format!("Game Thread #{}", owned_game_id).as_str(),
-                                ),
-                        )
-                        .await
-                        .expect("Should be able to create a game thread.")
-                };
+                let result = http
+                    .get_guild_active_threads(guild.id)
+                    .await
+                    .expect("Should be able to fetch active guild threads.");
+                let threads: Vec<&GuildChannel> = result
+                    .threads
+                    .iter()
+                    .filter(|&c| c.parent_id == Some(shogi_channel.id))
+                    .collect();
+
+                let mut new_thread = false;
+                let mut thread =
+                    if let Some(&thread) = threads.iter().find(|&&c| c.name == owned_game_id) {
+                        thread.clone()
+                    } else {
+                        new_thread = true;
+                        shogi_channel
+                            .create_thread(
+                                &http,
+                                CreateThread::new(owned_game_id.as_str())
+                                    .kind(ChannelType::PublicThread)
+                                    .auto_archive_duration(serenity::AutoArchiveDuration::OneWeek)
+                                    .audit_log_reason(
+                                        format!("Game Thread #{}", owned_game_id).as_str(),
+                                    ),
+                            )
+                            .await
+                            .expect("Should be able to create a game thread.")
+                    };
 
                 if let Some(data) = msg.d {
                     match data {
@@ -137,6 +177,33 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                             sfen, clock, check, ..
                         }) => {
                             if let Some(game_move) = &game.latest_move {
+                                if new_thread {
+                                    let sente = if let Some(sente_player) = &game.sente {
+                                        UserId::new(sente_player.id as u64).mention().to_string()
+                                    } else {
+                                        "<unknown>".to_string()
+                                    };
+
+                                    let gote = if let Some(gote_player) = &game.gote {
+                                        UserId::new(gote_player.id as u64).mention().to_string()
+                                    } else {
+                                        "<unknown>".to_string()
+                                    };
+
+                                    thread
+                                        .send_message(
+                                            &http,
+                                            CreateMessage::new().content(format!(
+                                                "Tracking Game: {} vs {}",
+                                                sente, gote
+                                            )),
+                                        )
+                                        .await
+                                        .expect(
+                                            "Should be able to send first Game Tracking Message.",
+                                        );
+                                }
+
                                 // Determine whose turn it is now (opposite of who just moved)
                                 // Odd turn = Sente moved, so ping Gote. Even turn = Gote moved, so ping Sente
                                 let is_sente_turn = game_move.turn % 2 == 0;

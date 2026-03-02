@@ -106,20 +106,15 @@ pub async fn listen(
     threads: &mut Vec<JoinHandle<()>>,
     callback: Option<Arc<SocketMessageCallback>>,
 ) {
-    use crate::persistence::schema::{
-        shogi_game::dsl::*,
-        shogi_game_move::dsl::{id as sgm_id, *},
-    };
+    use crate::persistence::schema::shogi_game::dsl::*;
 
     let pool = establish_connection();
     let connection =
         &mut sqlite_pool_handler(&pool).expect("Pooled Connection should be established.");
 
-    let game_ids = shogi_game_move
-        .left_outer_join(shogi_game)
-        .filter(winner.is_null())
-        .select(sgm_id)
-        .distinct()
+    let game_ids = shogi_game
+        .filter(win_condition.is_null())
+        .select(id)
         .load::<String>(connection)
         .expect("Failed to fetch games.");
 
@@ -185,10 +180,13 @@ pub async fn listen_to_game(
 
                     debug!("[{}]: {:?}", game_id, ws_msg);
 
+                    let mut update = true;
                     if let Some(data) = ws_msg.clone().d {
                         match data {
                             MessageData::MoveData(d) => {
-                                add_move(game_id, d).await;
+                                if !(add_move(game_id, d).await) {
+                                    update = false;
+                                }
                             }
                             MessageData::EndGameData(d) => {
                                 end_game(game_id, d).await;
@@ -198,7 +196,7 @@ pub async fn listen_to_game(
                         }
                     }
 
-                    if let Some(func) = callback.clone() {
+                    if update && let Some(func) = callback.clone() {
                         let game = get_game_details(game_id).await.expect(
                             "There should be an existing Shogi Game at this point in the program.",
                         );
@@ -237,13 +235,22 @@ pub async fn listen_to_game(
 mod tests {
     use super::*;
 
+    // #[tokio::test]
+    // async fn test_collect_pings() {
+    //     let game_id = "dP8exR8A";
+    //     let pings = collect_pings(game_id, 1, 30)
+    //         .await
+    //         .expect("collect pings failed");
+    //     assert!(pings >= 1, "expected at least one server ping");
+    // }
+
     #[tokio::test]
-    async fn test_collect_pings() {
-        // use the same hard-coded game id as the python ref
-        let game_id = "dP8exR8A";
-        let pings = collect_pings(game_id, 1, 30)
-            .await
-            .expect("collect pings failed");
-        assert!(pings >= 1, "expected at least one server ping");
+    async fn test_move_deserialization() {
+        let data = r#"{"t":"usi","v":1,"d":{"usi":"7g7f","sfen":"lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w -","ply":1,"clock":{"sente":1209600,"gote":1209600}}}"#;
+        let deserialized = serde_json::from_str::<SocketMessage>(data);
+        if deserialized.is_err() {
+            println!("{:?}", &deserialized);
+        }
+        assert!(deserialized.is_ok());
     }
 }

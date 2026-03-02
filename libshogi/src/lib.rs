@@ -1,7 +1,7 @@
 pub mod persistence;
 pub mod ws;
 
-use crate::persistence::models::{DetailedShogiGame};
+use crate::persistence::models::DetailedShogiGame;
 use std::{pin::Pin, sync::Arc};
 
 // Shared message types parsed from LiShogi websocket JSON payloads.
@@ -47,6 +47,7 @@ pub struct EndGameData {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum MessageData {
     MoveData(MoveData),
     EndGameData(EndGameData),
