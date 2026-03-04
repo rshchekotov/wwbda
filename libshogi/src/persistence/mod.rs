@@ -183,6 +183,18 @@ pub async fn get_game_details(game_id: &str) -> Option<DetailedShogiGame> {
     }
 }
 
+pub async fn get_last_move(game_id: &str) -> Option<ShogiGameMove> {
+    let pool = establish_connection();
+    let connection =
+        &mut sqlite_pool_handler(&pool).expect("Pooled connection should be established.");
+    use crate::persistence::schema::shogi_game_move::dsl::*;
+    shogi_game_move
+        .filter(id.eq(game_id))
+        .select(ShogiGameMove::as_select())
+        .first(connection)
+        .ok()
+}
+
 pub async fn add_move(game_id: &str, data: MoveData) -> bool {
     use crate::persistence::schema::shogi_game::dsl::*;
     use crate::persistence::schema::shogi_game_move;

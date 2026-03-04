@@ -12,7 +12,7 @@ use tokio::time;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
 use crate::persistence::{
-    add_move, end_game, establish_connection, get_game_details, sqlite_pool_handler,
+    add_move, end_game, establish_connection, get_game_details, get_last_move, sqlite_pool_handler,
 };
 use crate::{CrowdMessage, MessageData, SocketMessage, SocketMessageCallback};
 
@@ -179,6 +179,7 @@ pub async fn listen_to_game(
                     let mut should_end_game = false;
 
                     debug!("[{}]: {:?}", game_id, ws_msg);
+                    let last_turn = get_last_move(game_id).await;
 
                     let mut update = true;
                     if let Some(data) = ws_msg.clone().d {
@@ -201,7 +202,7 @@ pub async fn listen_to_game(
                             "There should be an existing Shogi Game at this point in the program.",
                         );
 
-                        func(game_id, game, ws_msg).await;
+                        func(game_id, game, last_turn, ws_msg).await;
                     }
 
                     if should_end_game {

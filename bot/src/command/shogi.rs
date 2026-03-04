@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use crate::{Context, Error};
+use crate::{Context, Error, util::time::format_duration};
 use libshogi::{
     EndGameData, MessageData, MoveData, SocketMessage, SocketMessageCallback,
-    persistence::models::DetailedShogiGame,
+    persistence::models::{DetailedShogiGame, ShogiGameMove},
 };
+use log::warn;
 use poise::serenity_prelude::{
     self as serenity, ChannelType, CreateEmbed, CreateMessage, CreateThread, EditThread,
     GuildChannel, Mentionable, UserId,
@@ -118,7 +119,10 @@ pub async fn debug(ctx: Context<'_>) -> Result<(), Error> {
 
 pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
     Box::new(
-        move |game_id: &str, game: DetailedShogiGame, msg: SocketMessage| {
+        move |game_id: &str,
+              game: DetailedShogiGame,
+              last_move: Option<ShogiGameMove>,
+              msg: SocketMessage| {
             let http = Arc::clone(&client);
             let owned_game_id = game_id.to_string();
 
@@ -210,6 +214,7 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
 
                                 let mut embed = CreateEmbed::new()
                                     .title(format!("Game #{}", game.game.id))
+                                    .url(format!("https://lishogi.org/{}", game.game.id))
                                     .description(format!("Turn #{}\n{}", game_move.turn, sfen))
                                     .timestamp(serenity::Timestamp::now());
 
@@ -219,12 +224,38 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                     embed = embed.field("Status", "王手", false);
                                 }
 
-                                if let Some(clock_val) = clock {
+                                if let Some(clock_val) = clock
+                                    && let Some(prev_move) = last_move
+                                {
+                                    let current_move = game.latest_move
+                                        .expect("The current move must exist for there to be a GameMove event.");
+
+                                    let (player_clock, emoji) = if is_sente_turn {
+                                        (clock_val.gote, "☖ ")
+                                    } else {
+                                        (clock_val.sente, "☗ ")
+                                    };
+
+                                    let formatted_clock_time = format_duration(player_clock);
+                                    let mut delta = current_move.ts.and_utc().timestamp()
+                                        - prev_move.ts.and_utc().timestamp();
+                                    if delta < 0 {
+                                        delta = -delta;
+                                        warn!(
+                                            "Negative Time Delta found in {} ({} -> {})",
+                                            owned_game_id, prev_move.turn, current_move.turn
+                                        );
+                                    }
+                                    let formatted_delta_time = format_duration(delta as u64);
+
                                     embed = embed.field(
-                                        "Clock",
+                                        "Time",
                                         format!(
-                                            "☗ Sente: {}s | ☖ Gote: {}s",
-                                            clock_val.sente, clock_val.gote
+                                            "{}{} / {} ({:.2}%)",
+                                            emoji,
+                                            formatted_delta_time,
+                                            formatted_clock_time,
+                                            (delta as f32 / player_clock as f32) * 100f32
                                         ),
                                         false,
                                     );
