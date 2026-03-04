@@ -287,6 +287,7 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                         MessageData::EndGameData(EndGameData { winner, status }) => {
                             let embed = CreateEmbed::new()
                                 .title(format!("Game #{}", game.game.id))
+                                .url(format!("https://lishogi.org/{}", game.game.id))
                                 .description(format!(
                                     "Game Ended!\nWinner: {}\nWin Condition: {}",
                                     winner, status.name
