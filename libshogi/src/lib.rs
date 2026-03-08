@@ -4,6 +4,7 @@ pub mod ws;
 use crate::persistence::models::{DetailedShogiGame, ShogiGameMove};
 use std::{pin::Pin, sync::Arc};
 
+use chrono::NaiveDateTime;
 // Shared message types parsed from LiShogi websocket JSON payloads.
 use serde::Deserialize;
 
@@ -52,10 +53,17 @@ pub struct EndGameData {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct AnnouncementData {
+    pub msg: String,
+    pub date: NaiveDateTime,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum MessageData {
     MoveData(MoveData),
     EndGameData(EndGameData),
+    AnnouncementData(AnnouncementData),
 }
 
 #[derive(Debug, Deserialize, Clone)]

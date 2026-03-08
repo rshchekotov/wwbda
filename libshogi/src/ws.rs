@@ -184,6 +184,9 @@ pub async fn listen_to_game(
                     let mut update = true;
                     if let Some(data) = ws_msg.clone().d {
                         match data {
+                            MessageData::AnnouncementData(d) => {
+                                info!("[{}] LiShogi Announcement: {}", game_id, d.msg);
+                            }
                             MessageData::MoveData(d) => {
                                 if !(add_move(game_id, d).await) {
                                     update = false;

@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Discord Slash-Command (owner-limited): `/reboot`
+- Forward Announcement Messages by LiShogi
+
+### Changed
+
+- Embed Colors:
+  - Move: `#ff8000`
+  - Game End: `#004E00`
+  - Announcement: `#8000ff`
 
 ## [0.2.0] - 2026-03-04
 

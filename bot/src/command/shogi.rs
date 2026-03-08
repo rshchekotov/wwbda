@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use crate::{Context, Error, util::time::format_duration};
 use libshogi::{
-    EndGameData, MessageData, MoveData, SocketMessage, SocketMessageCallback,
+    AnnouncementData, EndGameData, MessageData, MoveData, SocketMessage, SocketMessageCallback,
     persistence::models::{DetailedShogiGame, ShogiGameMove},
 };
 use log::warn;
 use poise::serenity_prelude::{
     self as serenity, ChannelType, CreateEmbed, CreateMessage, CreateThread, EditThread,
-    GuildChannel, Mentionable, UserId,
+    GuildChannel, Mentionable, Timestamp, UserId,
 };
 
 #[poise::command(
@@ -216,7 +216,8 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                     .title(format!("Game #{}", game.game.id))
                                     .url(format!("https://lishogi.org/{}", game.game.id))
                                     .description(format!("Turn #{}\n{}", game_move.turn, sfen))
-                                    .timestamp(serenity::Timestamp::now());
+                                    .timestamp(serenity::Timestamp::now())
+                                    .colour(0xFF8000);
 
                                 if let Some(check_val) = check
                                     && check_val
@@ -293,7 +294,7 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                     winner, status.name
                                 ))
                                 .timestamp(serenity::Timestamp::now())
-                                .color(0x00FF00);
+                                .color(0x004E00);
 
                             thread
                                 .send_message(&http, CreateMessage::new().embed(embed))
@@ -305,6 +306,21 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                 .edit_thread(&http, EditThread::new().archived(true))
                                 .await
                                 .expect("Should be able to archive the thread.");
+                        }
+                        MessageData::AnnouncementData(AnnouncementData { msg, date }) => {
+                            let time = Timestamp::from_unix_timestamp(date.and_utc().timestamp())
+                                .expect("should be able to convert from Chrono to Timestamp");
+                            let embed = CreateEmbed::new()
+                                .title("Lishogi Announcement")
+                                .url("https://lishogi.org")
+                                .description(msg)
+                                .timestamp(time)
+                                .color(0x8000ff);
+
+                            shogi_channel
+                                .send_message(http, CreateMessage::new().embed(embed))
+                                .await
+                                .expect("Should be able to forward the announcement");
                         }
                     }
                 }
