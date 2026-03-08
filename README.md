@@ -95,3 +95,12 @@ and kept inside the libshogi module so it can be unit-tested from SFEN fixtures.
 
 > [!NOTE]
 > User Pings are not customizable yet, i.e. the second command does not yet exist.
+
+## Development
+
+### Release Checklist
+
+- [ ] Update `Cargo.toml` in the respective projects
+- [ ] Run Cargo Checks and Formatting
+- [ ] Create Git Tag
+- [ ] Check Documentation / CHANGELOG for user-facing changes

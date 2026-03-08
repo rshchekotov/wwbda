@@ -29,7 +29,10 @@ RUN apt-get update && \
 WORKDIR /app
 COPY --from=builder /usr/src/app/target/release/bot .
 COPY CHANGELOG.md .
+COPY entrypoint.sh .
+
+RUN chmod +x entrypoint.sh
 
 USER 1000:1000
-CMD ["./bot"]
+CMD ["./entrypoint.sh"]
 

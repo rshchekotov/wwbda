@@ -27,7 +27,9 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
             ))
         })
         .level(LevelFilter::Debug)
-        .filter(|metadata| metadata.target().contains("libshogi") || metadata.target().contains("bot"))
+        .filter(|metadata| {
+            metadata.target().contains("libshogi") || metadata.target().contains("bot")
+        })
         .chain(std::io::stdout());
 
     // file dispatcher: include target and timestamp

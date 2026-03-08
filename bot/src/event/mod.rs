@@ -15,9 +15,26 @@ pub async fn event_handler(
     #[allow(clippy::single_match)]
     match event {
         FullEvent::Ready { data_about_bot, .. } => {
+            let mut rebooted = false;
+            if tokio::fs::try_exists("logs/.reboot")
+                .await
+                .expect("Should be able to check whether reboot flag exists")
+            {
+                tokio::fs::remove_file("logs/.reboot")
+                    .await
+                    .expect("Should be able to clear reboot flag");
+
+                rebooted = true;
+                info!("Reboot Successful.");
+            }
+
             info!("Logged in as {} on Discord", data_about_bot.user.tag());
             if data.environment != "develop" {
-                let msg = CreateMessage::new().content("Logging Channel Found :white_check_mark:");
+                let msg = CreateMessage::new().content(if rebooted {
+                    "> *initialized*"
+                } else {
+                    "> *rebooted*"
+                });
                 data.log_channel
                     .send_message(&ctx.http, msg)
                     .await
@@ -25,9 +42,6 @@ pub async fn event_handler(
             }
 
             if libshogi::run_migrations().is_ok() {
-                // libshogi::listen(&mut local_state.threads, callback).await;
-                // Spawn listener - returns immediately!
-
                 let shared_state = data.state.clone();
                 tokio::spawn(async move {
                     let mut state = shared_state.lock().await;
