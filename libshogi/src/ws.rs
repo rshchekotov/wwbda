@@ -236,15 +236,6 @@ pub async fn listen_to_game(
 mod tests {
     use super::*;
 
-    // #[tokio::test]
-    // async fn test_collect_pings() {
-    //     let game_id = "dP8exR8A";
-    //     let pings = collect_pings(game_id, 1, 30)
-    //         .await
-    //         .expect("collect pings failed");
-    //     assert!(pings >= 1, "expected at least one server ping");
-    // }
-
     #[tokio::test]
     async fn test_move_deserialization() {
         let data = r#"{"t":"usi","v":1,"d":{"usi":"7g7f","sfen":"lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w -","ply":1,"clock":{"sente":1209600,"gote":1209600}}}"#;
