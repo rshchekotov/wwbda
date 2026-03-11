@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "bot"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "colored 3.1.1",
@@ -1113,7 +1113,7 @@ checksum = "bcc35a38544a891a5f7c865aca548a982ccb3b8650a5b06d0fd33a10283c56fc"
 
 [[package]]
 name = "libshogi"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "diesel",
