@@ -8,8 +8,8 @@ use libshogi::{
 };
 use log::warn;
 use poise::serenity_prelude::{
-    self as serenity, ChannelType, CreateEmbed, CreateMessage, CreateThread, EditThread,
-    GuildChannel, Mentionable, Timestamp, UserId,
+    self as serenity, ChannelType, CreateAttachment, CreateEmbed, CreateMessage, CreateThread,
+    EditThread, GuildChannel, Mentionable, Timestamp, UserId,
 };
 
 #[poise::command(
@@ -214,12 +214,15 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                 let is_sente_turn = game_move.turn % 2 == 0;
 
                                 let visualization = save_img(sfen);
+                                let attachment = CreateAttachment::path(visualization.clone())
+                                    .await
+                                    .expect("Could not find Shogi Visualization");
                                 let mut embed = CreateEmbed::new()
                                     .title(format!("Game #{}", game.game.id))
                                     .url(format!("https://lishogi.org/{}", game.game.id))
                                     .field("Turn", format!("{}", game_move.turn), false)
                                     .timestamp(serenity::Timestamp::now())
-                                    .image(format!("attachment://{}", visualization))
+                                    .image(format!("attachment://{}", visualization.split_at(4).1))
                                     .colour(0xFF8000);
 
                                 if let Some(check_val) = check
@@ -265,7 +268,8 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                     );
                                 }
 
-                                let mut message = CreateMessage::new().embed(embed);
+                                let mut message =
+                                    CreateMessage::new().embed(embed).add_file(attachment);
 
                                 // Ping the player whose turn it is
                                 if is_sente_turn {
