@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-03-11
 
+## [0.4.1] - 2026-03-12
+
+### Fixed
+
+- Send Shogi Board Visualization as Attachment
+
 ## [0.4.0] - 2026-03-11
 
 ### Added
@@ -57,7 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rust-based LiShogi library
 - Multi-Threaded WebSocket Listeners (per game)
 
-[Unreleased]: https://github.com/rshchekotov/wwbda/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/rshchekotov/wwbda/compare/v0.4.1...HEAD
+
+[0.4.1]: https://github.com/rshchekotov/wwbda/releases/tag/v0.4.1
 
 [0.4.0]: https://github.com/rshchekotov/wwbda/releases/tag/v0.4.0
 
