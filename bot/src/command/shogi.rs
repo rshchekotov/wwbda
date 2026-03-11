@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{Context, Error, util::time::format_duration};
 use libshogi::{
     AnnouncementData, EndGameData, MessageData, MoveData, SocketMessage, SocketMessageCallback,
+    img::save_img,
     persistence::models::{DetailedShogiGame, ShogiGameMove},
 };
 use log::warn;
@@ -212,11 +213,13 @@ pub fn create_callback(client: Arc<serenity::Http>) -> SocketMessageCallback {
                                 // Odd turn = Sente moved, so ping Gote. Even turn = Gote moved, so ping Sente
                                 let is_sente_turn = game_move.turn % 2 == 0;
 
+                                let visualization = save_img(sfen);
                                 let mut embed = CreateEmbed::new()
                                     .title(format!("Game #{}", game.game.id))
                                     .url(format!("https://lishogi.org/{}", game.game.id))
-                                    .description(format!("Turn #{}\n{}", game_move.turn, sfen))
+                                    .field("Turn", format!("{}", game_move.turn), false)
                                     .timestamp(serenity::Timestamp::now())
+                                    .image(format!("attachment://{}", visualization))
                                     .colour(0xFF8000);
 
                                 if let Some(check_val) = check

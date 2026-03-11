@@ -1,5 +1,9 @@
+pub mod img;
 pub mod persistence;
 pub mod ws;
+
+#[cfg(test)]
+pub mod test;
 
 use crate::persistence::models::{DetailedShogiGame, ShogiGameMove};
 use std::{pin::Pin, sync::Arc};

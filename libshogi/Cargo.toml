@@ -1,6 +1,6 @@
 [package]
 name = "libshogi"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 
 [dependencies]
@@ -25,4 +25,7 @@ diesel = { version = "2.3.6", features = [
 ] }
 diesel_migrations = "2.3.1"
 r2d2 = "0.8.10"
-chrono = "0.4.44"
+chrono = { version = "0.4.44", features = ["serde"] }
+shogi-img = "0.4.0"
+shogi_usi_parser = "0.1.0"
+blake3 = "1.8.3"
