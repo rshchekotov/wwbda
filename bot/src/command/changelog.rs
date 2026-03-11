@@ -67,6 +67,7 @@ pub async fn changelog(
         let start_index = cap.get(0).unwrap().start();
         let end_index = version_section[start_index..]
             .find("\n## [")
+            .map(|offset| start_index + offset)
             .unwrap_or(version_section.len());
 
         let section = &version_section[start_index..end_index];
