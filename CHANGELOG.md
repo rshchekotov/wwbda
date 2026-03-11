@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Game End: `#004E00`
   - Announcement: `#8000ff`
 
+### Fixed
+
+- Turn Time Delta now references the latest move
+  not the first move of the game
+
 ## [0.2.0] - 2026-03-04
 
 ### Changed

@@ -191,6 +191,7 @@ pub async fn get_last_move(game_id: &str) -> Option<ShogiGameMove> {
     shogi_game_move
         .filter(id.eq(game_id))
         .select(ShogiGameMove::as_select())
+        .order_by(ts.desc())
         .first(connection)
         .ok()
 }
