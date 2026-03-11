@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-03-11
 
+## [0.3.1] - 2026-03-11
+
+### Fixed
+
+- Changelog Splicing Bug
+
 ## [0.3.0] - 2026-03-11
 
 ### Added
@@ -45,7 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rust-based LiShogi library
 - Multi-Threaded WebSocket Listeners (per game)
 
-[Unreleased]: https://github.com/rshchekotov/wwbda/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rshchekotov/wwbda/compare/v0.3.1...HEAD
+
+[0.3.1]: https://github.com/rshchekotov/wwbda/releases/tag/v0.3.1
 
 [0.3.0]: https://github.com/rshchekotov/wwbda/releases/tag/v0.3.0
 
